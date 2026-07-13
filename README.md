@@ -20,9 +20,9 @@ The model also demonstrates a critical insight that applies to any classificatio
 
 ## 📊 Dataset
 
-- **10,000 assembly cycles** from a mechatronics module line over a 60-day production window
+- **10,247 assembly cycles** from a mechatronics module line over a 60-day production window
 - **Target:** `is_scrap` — binary (0 = OK · 1 = Scrap)
-- **Scrap rate:** 30.3%  |  **Class ratio OK:Scrap** = 2.3:1
+- **Scrap rate:** 30.2%  |  **Class ratio OK:Scrap** = 2.3:1
 - **Sources:** Torque controller PLC · Press sensor log · Environmental monitoring · MES operator entries
 
 | Column | Type | Description |
@@ -86,22 +86,22 @@ XGBoost builds decision trees **sequentially**, each one correcting the errors o
 
 | Metric | Default (thr=0.50) | Operational (thr=0.25) | Meaning |
 |---|---|---|---|
-| **ROC-AUC** | **0.593** | 0.593 | Threshold-independent discrimination |
-| **Recall** | 14% | **69%** | % of actual scrap units caught before dispatch |
-| **Precision** | 47% | 34% | % of flagged units that are truly scrap |
-| **F1** | 0.22 | **0.46** | Harmonic mean — operational threshold wins |
-| **Accuracy** | 69% | 50% | Not the primary metric for imbalanced scrap data |
+| **ROC-AUC** | **0.617** | 0.617 | Threshold-independent discrimination |
+| **Recall** | 13% | **70%** | % of actual scrap units caught before dispatch |
+| **Precision** | 52% | 35% | % of flagged units that are truly scrap |
+| **F1** | 0.21 | **0.47** | Harmonic mean — operational threshold wins |
+| **Accuracy** | 70% | 53% | Not the primary metric for imbalanced scrap data |
 
-**Train:** 8,000 cycles · **Test:** 2,000 cycles · `random_state=42, stratify=y`
+**Train:** 8,197 cycles · **Test:** 2,050 cycles · `random_state=42, stratify=y`
 
-**ROC-AUC = 0.593** reflects a realistic assembly dataset where scrap has genuine stochastic components — a unit can fail even under ideal conditions. AUC > 0.5 confirms real signal. The practical value is at threshold 0.25: the model catches **69% of scrap units** before they leave the line.
+**ROC-AUC = 0.617** reflects a realistic assembly dataset where scrap has genuine stochastic components — a unit can fail even under ideal conditions. AUC > 0.5 confirms real signal. The practical value is at threshold 0.25: the model catches **70% of scrap units** before they leave the line.
 
-**Confusion matrix (threshold = 0.25, n=2,000 test cycles):**
+**Confusion matrix (threshold = 0.25, n=2,050 test cycles):**
 
 | | Predicted OK | Predicted Scrap |
 |---|---|---|
-| **Actual OK** | 589 (TN) | 806 (FP) |
-| **Actual Scrap** | 190 (FN) | 415 (TP) |
+| **Actual OK** | 645 (TN) | 787 (FP) |
+| **Actual Scrap** | 186 (FN) | 432 (TP) |
 
 ---
 
@@ -109,21 +109,21 @@ XGBoost builds decision trees **sequentially**, each one correcting the errors o
 
 | Feature | Gain | Role |
 |---|---|---|
-| `shift_change` | 0.138 | Highest gain — shift boundaries create the clearest tree splits |
-| `line_vibration_mm_s` | 0.101 | Strongest continuous process driver — directional, threshold effect |
-| `relative_humidity_pct` | 0.085 | Environmental contamination risk — adhesive and connector sensitivity |
-| `press_pressure_bar` | 0.083 | Press station process quality |
-| `applied_torque_nm` | 0.079 | Bimodal risk: too low AND too high both increase scrap — nonlinear |
-| `operator_cycle_time_s` | 0.077 | Proxy for operator stress and attention — faster ≠ always better |
-| `operator_experience_yrs` | 0.075 | Threshold effect: novice (0–1y) 35.3% scrap vs senior 29.5% |
-| `screwdriving_speed_rpm` | 0.075 | Speed interacts with torque — neither alone is sufficient |
-| `material_batch` | 0.074 | Batch quality variation not encoded — numerical ID is a proxy |
-| `shop_floor_temp_c` | 0.074 | Thermal expansion effects on connector engagement |
-| `motor_current_a` | 0.074 | Current draw as torque proxy — correlated with applied_torque_nm |
-| `day_of_week` | 0.065 | Friday/Monday temporal pattern — human factor and staffing |
+| `shift_change` | 0.115 | Highest gain — shift boundaries create the clearest tree splits |
+| `line_vibration_mm_s` | 0.095 | Strongest continuous process driver — directional, threshold effect |
+| `press_pressure_bar` | 0.089 | Press station process quality |
+| `relative_humidity_pct` | 0.081 | Environmental contamination risk — adhesive and connector sensitivity |
+| `motor_current_a` | 0.081 | Current draw as torque proxy — correlated with applied_torque_nm |
+| `applied_torque_nm` | 0.081 | Bimodal risk: too low AND too high both increase scrap — nonlinear |
+| `screwdriving_speed_rpm` | 0.079 | Speed interacts with torque — neither alone is sufficient |
+| `shop_floor_temp_c` | 0.079 | Thermal expansion effects on connector engagement |
+| `operator_cycle_time_s` | 0.079 | Proxy for operator stress and attention — faster ≠ always better |
+| `operator_experience_yrs` | 0.077 | Threshold effect: novice (0–1y) 35.3% scrap vs senior 29.5% |
+| `material_batch` | 0.075 | Batch quality variation not encoded — numerical ID is a proxy |
+| `day_of_week` | 0.071 | Friday/Monday temporal pattern — human factor and staffing |
 
 **Key scrap rate patterns from EDA:**
-- Shift changeover cycles: **34.6%** scrap vs normal shift **27.9%**
+- Shift changeover cycles: **34.4%** scrap vs normal shift **27.9%**
 - Novice operators (0–1 yr): **35.3%** scrap vs Senior (10+yr): **29.5%**
 - Very High vibration (>3.5 mm/s): significantly above baseline scrap rate
 
@@ -146,11 +146,11 @@ The threshold choice cannot be made statistically. It requires a cost function:
 
 | Scenario | Conditions | P(Scrap) | Decision |
 |---|---|---|---|
-| **A — Controlled** | Torque 1.85 Nm · Vibration 1.0 mm/s · 5yr exp · Normal shift · 40% RH | **9.1%** | ✅ OK to proceed |
-| **B — All Risks Active** | Torque 1.4 Nm · Vibration 4.8 mm/s · 0yr exp · Shift change · 70% RH | **92.8%** | ⚠ Flag as SCRAP RISK |
-| **C — Process Fixed** | Torque 1.85 Nm · Vibration 1.5 mm/s · 0yr exp · Shift change · 70% RH | **62.0%** | ⚠ Flag as SCRAP RISK |
+| **A — Controlled** | Torque 1.85 Nm · Vibration 1.0 mm/s · 5yr exp · Normal shift · 40% RH | **20.4%** | ✅ OK to proceed |
+| **B — All Risks Active** | Torque 1.4 Nm · Vibration 4.8 mm/s · 0yr exp · Shift change · 70% RH | **78.5%** | ⚠ Flag as SCRAP RISK |
+| **C — Process Fixed** | Torque 1.85 Nm · Vibration 1.5 mm/s · 0yr exp · Shift change · 70% RH | **40.7%** | ⚠ Flag as SCRAP RISK |
 
-Correcting torque and vibration alone (B→C) **reduces risk by 31 percentage points**. The residual 62% risk in Scenario C reflects that human factors (novice operator on shift change) cannot be corrected by process adjustment alone — recommendation: pair novice operators with mentors during shift changeovers.
+Correcting torque and vibration alone (B→C) **reduces risk by 38 percentage points**. The residual 41% risk in Scenario C reflects that human factors (novice operator on shift change) cannot be corrected by process adjustment alone — recommendation: pair novice operators with mentors during shift changeovers.
 
 ---
 
@@ -182,11 +182,11 @@ jupyter notebook 12_XGBoost_Advanced_Scrap_Prediction.ipynb
 
 ## 💡 Key Learnings
 
-1. **Threshold selection is a business decision, not a model decision.** Moving from 0.50 to 0.25 triples recall (14% → 69%) at the cost of precision (47% → 34%). Which trade-off is correct depends on the cost of a missed scrap vs. the cost of a false alarm — numbers the quality engineer owns, not the notebook.
+1. **Threshold selection is a business decision, not a model decision.** Moving from 0.50 to 0.25 multiplies recall (13% → 70%) at the cost of precision (52% → 35%). Which trade-off is correct depends on the cost of a missed scrap vs. the cost of a false alarm — numbers the quality engineer owns, not the notebook.
 
 2. **XGBoost captures the interactions that control charts miss.** A single low torque reading is not alarming. Low torque + high vibration + novice operator on a shift change night is a different story. XGBoost finds the joint condition; SPC charts find it one variable at a time — after the scrap has been produced.
 
-3. **AUC = 0.593 on real assembly data is not failure — it is calibration.** Human assembly has genuine randomness: a unit assembled under identical conditions may or may not fail. AUC > 0.5 confirms the model extracts real signal. Achieving 0.95 AUC on production data should raise skepticism, not admiration.
+3. **AUC = 0.617 on real assembly data is not failure — it is calibration.** Human assembly has genuine randomness: a unit assembled under identical conditions may or may not fail. AUC > 0.5 confirms the model extracts real signal. Achieving 0.95 AUC on production data should raise skepticism, not admiration.
 
 4. **Operator experience shows a nonlinear threshold effect.** Novice operators (0–1 year) produce 35.3% scrap vs. 29.5% for experienced ones — a 5.8-point gap. But the effect flattens sharply after year 2. This is not captured by any linear model. XGBoost finds the threshold natively through its tree structure.
 

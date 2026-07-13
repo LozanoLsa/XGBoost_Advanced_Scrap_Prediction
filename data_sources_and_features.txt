@@ -1,0 +1,60 @@
+PROJECT: 12_XGBoost_SUP
+TITLE: Data Sources & Feature Engineering
+
+--------------------------------------------------
+OVERVIEW:
+This dataset contains 10,247 assembly cycles from a mechatronics module line over a 60-day production window. The ML task is binary classification to predict assembly scrap (is_scrap: 0 = OK, 1 = Scrap). Scrap rate: 30.2%, class ratio OK:Scrap = 2.3:1. XGBoost is used because scrap results from nonlinear interaction effects between torque, vibration, environmental conditions, and operator factors that classical SPC charts cannot capture simultaneously.
+
+--------------------------------------------------
+REAL-WORLD DATA SOURCES:
+
+Feature                  | Source System                           | Notes
+-------------------------|-----------------------------------------|------------------------------
+applied_torque_nm        | Torque Controller PLC                   | Logged per fastening cycle — waveform data summarised to peak torque and speed
+screwdriving_speed_rpm   | Torque Controller PLC                   | Logged per fastening cycle — waveform data summarised to peak torque and speed
+motor_current_a          | Torque Controller PLC                   | Logged per fastening cycle — waveform data summarised to peak torque and speed
+press_pressure_bar       | Press Station PLC / Pressure Transducer | Logged at each press stroke — peak pressure per cycle
+operator_cycle_time_s    | MES / Barcode Scanner                   | Timestamp delta between unit scan-in and scan-out at the assembly station
+relative_humidity_pct    | Environmental Monitoring System         | Bay-level sensors logged every 5 minutes — joined to production records by timestamp
+shop_floor_temp_c        | Environmental Monitoring System         | Bay-level sensors logged every 5 minutes — joined to production records by timestamp
+line_vibration_mm_s      | Vibration Sensor / SCADA                | RMS vibration amplitude from accelerometer mounted on the assembly frame
+operator_experience_yrs  | HR System / MES                         | Years-of-service lookup from the operator badge ID logged at station login
+shift_change             | MES / Shift Schedule                    | Binary flag derived from production timestamp vs shift boundary table
+material_batch           | ERP / Goods Receipt                     | Batch ID from the material traceability record — linked to the production order
+is_scrap                 | MES / Quality Station                   | TARGET — scrap disposition recorded at the end-of-line quality gate
+
+Note: day_of_week is derived from the production timestamp and is not attributed to a dedicated source system.
+
+--------------------------------------------------
+VARIABLE DESCRIPTIONS:
+
+applied_torque_nm       - Torque applied to fasteners (Nm); bimodal risk — both too-low and too-high values increase scrap. XGBoost gain: 0.081.
+screwdriving_speed_rpm  - Screw driver rotation speed (rpm); interacts with torque — neither alone is sufficient to predict scrap. XGBoost gain: 0.079.
+motor_current_a         - Driver motor current draw (A); correlated with applied_torque_nm — acts as a torque proxy. XGBoost gain: 0.081.
+press_pressure_bar      - Press station pressure (bar); press process quality signal. XGBoost gain: 0.089.
+operator_cycle_time_s   - Operator task cycle time (s); proxy for operator stress and attention — faster is not always better. XGBoost gain: 0.079.
+relative_humidity_pct   - Ambient humidity in assembly bay (%); environmental contamination risk for adhesive and connector sensitivity. XGBoost gain: 0.081.
+shop_floor_temp_c       - Ambient temperature in assembly bay (°C); thermal expansion effects on connector engagement. XGBoost gain: 0.079.
+line_vibration_mm_s     - Assembly line vibration amplitude (mm/s RMS); strongest continuous process driver with threshold effect above ~3.5 mm/s. XGBoost gain: 0.095.
+operator_experience_yrs - Years of experience for the assigned operator (int); threshold effect: novice (0–1 yr) 35.3% scrap vs senior (10+ yr) 29.5%. XGBoost gain: 0.077.
+shift_change            - Binary flag: 1 = cycle occurs during shift changeover window; highest-gain feature — shift changeover cycles: 34.4% scrap vs normal 27.9%. XGBoost gain: 0.115.
+material_batch          - Material batch ID (1–50); proxy for batch quality variation not explicitly encoded. XGBoost gain: 0.075.
+day_of_week             - Day of week (0 = Monday, 6 = Sunday); derived from timestamp — captures Friday/Monday temporal and staffing patterns. XGBoost gain: 0.071.
+is_scrap                - Binary target: 0 = OK, 1 = Scrap. Scrap rate: 30.2%.
+
+--------------------------------------------------
+FEATURE ENGINEERING:
+
+No StandardScaler required — XGBoost is scale-invariant; tree splits are based on rank-ordered thresholds, not absolute distances. Stratified train/test split (stratify=y) preserves the 30.2% scrap rate in both sets: 8,197 train / 2,050 test cycles (80/20, random_state=42). Key hyperparameters: n_estimators=200, max_depth=4, learning_rate=0.1, subsample=0.8, colsample_bytree=0.8. Default threshold (0.50) yields Recall=13%; operational threshold tuned to 0.25 yields Recall=70% at Precision=35% — threshold selection is a business decision based on the relative cost of a missed scrap vs. a false alarm. At unit cost €500 and downstream risk €2,000, break-even precision is 20%; model achieves 34% at threshold 0.25.
+
+Note on data collection: assembling this dataset requires joining five separate systems on a combination of timestamp, operator badge ID, and material batch ID. The scrap disposition at end-of-line may be recorded up to 30 minutes after the assembly event, creating a time-alignment challenge.
+
+--------------------------------------------------
+BUSINESS CONTEXT:
+
+Used by process engineers and quality managers in mechatronics and electronics assembly lines. The model enables pre-completion scrap risk scoring — flagging units before they leave the line, eliminating the reactive inspection loop that allows defects to accumulate. Demonstrates that XGBoost captures interaction effects (e.g., low torque + high vibration + novice operator on shift changeover) that univariate SPC charts systematically miss, and that threshold selection is a business decision owned by the quality engineer, not the data scientist.
+
+--------------------------------------------------
+GOAL:
+
+Predict assembly scrap probability from 12 process and environmental features to enable pre-completion quality intervention, quantify the business case for operational threshold selection, and identify interaction effects that univariate SPC charts miss. Model achieved ROC-AUC = 0.617, Recall = 70% (threshold = 0.25), Precision = 35%, F1 = 0.47. Train: 8,197 cycles, Test: 2,050 cycles.

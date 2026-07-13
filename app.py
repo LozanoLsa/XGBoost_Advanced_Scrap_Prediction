@@ -215,10 +215,10 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 
 # ══ TAB 1 ══════════════════════════════════════════════════════════════════════
 with tab1:
-    st.markdown('<div class="lsa-section">// Dataset — 10,000 assembly cycles</div>',
+    st.markdown('<div class="lsa-section">// Dataset — 10,247 assembly cycles</div>',
                 unsafe_allow_html=True)
     c1, c2, c3 = st.columns(3)
-    c1.metric("Records", "10,000")
+    c1.metric("Records", "10,247")
     c2.metric("Features", "12")
     c3.metric("Scrap Rate", f"{df[TARGET].mean()*100:.1f}%")
     with st.expander("Preview first 20 rows"):
@@ -281,7 +281,7 @@ with tab1:
 
 # ══ TAB 2 ══════════════════════════════════════════════════════════════════════
 with tab2:
-    st.markdown('<div class="lsa-section">// XGBoost performance — test set (n=2,000)</div>',
+    st.markdown('<div class="lsa-section">// XGBoost performance — test set (n=2,050)</div>',
                 unsafe_allow_html=True)
     ca, cb = st.columns(2)
     with ca:
@@ -589,7 +589,7 @@ with tab5:
                 unsafe_allow_html=True)
     actions = [
         (C_DANGER, f"Use threshold {THRESHOLD} as the go/no-go gate, not 0.50",
-         f"At threshold 0.50, the model catches only 16% of scrap (84% escape). "
+         f"At threshold 0.50, the model catches only 13% of scrap (87% escape). "
          f"At threshold {THRESHOLD}, recall rises to {metrics['rec']:.0%} with acceptable false alarm rate. "
          f"For most assembly operations the cost of a missed scrap exceeds the cost of a re-inspection."),
         (C_BLUE,   "Mount anti-vibration pads when line_vibration_mm_s > 3.5",
@@ -598,7 +598,7 @@ with tab5:
          "scrap cost is orders of magnitude higher. Trigger maintenance at 3.0 mm/s."),
         (C_WARN,   "Pair novice operators with mentors during shift changeovers",
          "shift_change and operator_experience_yrs are the top two XGBoost features by gain. "
-         "Their interaction is the highest-risk scenario in the dataset (Scenario B: 95% P(scrap)). "
+         "Their interaction is the highest-risk scenario in the dataset (Scenario B: 79% P(scrap)). "
          "Never assign a 0-year operator as the sole operator during a changeover window."),
         (C_OK,     "Alert when humidity > 65% and act before production starts",
          "Humidity >65% adds a significant risk factor independently of process parameters — "
@@ -607,7 +607,7 @@ with tab5:
         (C_PURP,   "Retrain monthly as batches rotate and operators change",
          "The model was trained on specific material batch IDs and an operator pool. "
          "As new batches arrive and operator experience levels shift, retrain with accumulated data. "
-         "XGBoost retraining with 10,000 records takes under 30 seconds — this is not a barrier."),
+         "XGBoost retraining with 10,247 records takes under 30 seconds — this is not a barrier."),
     ]
     for color, title, body in actions:
         st.markdown(f"""
